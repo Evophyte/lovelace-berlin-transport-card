@@ -1,11 +1,102 @@
 // Berlin Transport Card
 
+function escapeHtml(text) {
+  const entities = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return String(text).replace(/[&<>"']/g, (char) => entities[char]);
+}
+
+// Formats a time as HH:MM in the given IANA time zone (local time if empty)
+function formatClock(ms, timeZone) {
+  const format = (zone) =>
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: zone,
+    }).format(ms);
+
+  try {
+    return format(timeZone || undefined);
+  } catch (e) {
+    // unknown time zone
+    return format(undefined);
+  }
+}
+
+/*
+ * Renders the time column of a departure from a `time_format` template.
+ * Pure function: `now` is a Date or a timestamp in ms, `walkingTime` is in
+ * minutes, `options.formatNow` replaces `format` when {min} is 0 and
+ * `options.timeZone` is the IANA time zone used for {time}.
+ * The result is HTML-safe.
+ */
+function formatDepartureTime(
+  departure,
+  walkingTime,
+  now,
+  format,
+  options = {},
+) {
+  const delaySeconds = departure.delay || 0;
+  const plannedMs = new Date(departure.timestamp).getTime();
+  const actualMs = plannedMs + delaySeconds * 1000;
+  const valid = Number.isFinite(actualMs);
+
+  const min = valid ? Math.max(0, Math.floor((actualMs - now) / 60000)) : "?";
+  const leave = valid ? Math.max(0, min - (walkingTime || 0)) : "?";
+  const delay = Math.trunc(delaySeconds / 60);
+  const planned =
+    departure.time || (valid ? formatClock(plannedMs, options.timeZone) : "?");
+
+  const values = {
+    min,
+    leave,
+    time: valid ? formatClock(actualMs, options.timeZone) : "?",
+    planned: escapeHtml(planned),
+    delay,
+    delay_text: delay >= 1 ? ` (+${delay})` : "",
+  };
+
+  const template = min === 0 && options.formatNow ? options.formatNow : format;
+
+  // Escape first, so only the placeholder values can add markup
+  return escapeHtml(template).replace(/\{(\w+)\}/g, (match, key) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match,
+  );
+}
+
 class BerlinTransportCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({
       mode: "open",
     });
+  }
+
+  connectedCallback() {
+    this._scheduleRefresh();
+  }
+
+  disconnectedCallback() {
+    clearTimeout(this._refreshTimer);
+    this._refreshTimer = undefined;
+  }
+
+  /* Home Assistant only calls `set hass` on state changes, but the
+     remaining minutes change without one. Re-render every full minute. */
+  _scheduleRefresh() {
+    clearTimeout(this._refreshTimer);
+    const untilNextMinute = 60000 - (Date.now() % 60000);
+    this._refreshTimer = setTimeout(() => {
+      this._scheduleRefresh();
+      if (this.config && this._hass) this.hass = this._hass;
+    }, untilNextMinute + 500);
   }
 
   /* This is called every time sensor is updated */
@@ -28,6 +119,11 @@ class BerlinTransportCard extends HTMLElement {
       config.include_walking_time || config.include_walking_time === undefined;
     const showWarnings =
       config.show_warnings || config.show_warnings === undefined;
+    const timeFormat =
+      typeof config.time_format === "string" ? config.time_format : "";
+    const timeFormatNow =
+      typeof config.time_format_now === "string" ? config.time_format_now : "";
+    const timeZone = hass.config?.time_zone;
 
     let content = "";
 
@@ -147,6 +243,17 @@ class BerlinTransportCard extends HTMLElement {
               ? "departure-cancelled"
               : "";
 
+            // time_format replaces the whole time column
+            const timeContent = timeFormat
+              ? `<div class="time-text">${formatDepartureTime(
+                  departure,
+                  departure.walking_time || 0,
+                  currentDate,
+                  timeFormat,
+                  { formatNow: timeFormatNow, timeZone },
+                )}</div>`
+              : `${showRelativeTime ? relativeTimeDiv : ""}${showAbsoluteTime ? departure.time : ""}${showDelay ? delayDiv : ""}`;
+
             return `<div class="departure">
                                 <div class="line ${cancelledClass}">
                                     <div class="line-icon" style="background-color: ${departure.color}">${departure.line_name}</div>
@@ -155,7 +262,7 @@ class BerlinTransportCard extends HTMLElement {
                                     <div class="${cancelledClass}">${departure.direction}</div>
                                     ${warningsDiv}
                                 </div>
-                                <div class="time ${cancelledClass}">${showRelativeTime ? relativeTimeDiv : ""}${showAbsoluteTime ? departure.time : ""}${showDelay ? delayDiv : ""}</div>
+                                <div class="time ${cancelledClass}">${timeContent}</div>
                             </div>`;
           });
 
@@ -262,6 +369,9 @@ class BerlinTransportCard extends HTMLElement {
             .relative-time {
                font-style: italic;
             }
+            .time-text {
+               text-align: right;
+            }
             .warnings {
                 display: flex;
                 flex-direction: column;
@@ -345,9 +455,21 @@ class BerlinTransportCardEditor extends HTMLElement {
       include_walking_time:
         "Subtract walking time from relative time of departures",
       show_warnings: "Show warnings (e.g. service disruptions)",
+      time_format: "Time format (optional)",
+      time_format_now: "Time format when departing now (optional)",
     };
 
     return labels[field.name] ? labels[field.name] : field.name;
+  }
+
+  _computeHelper(field) {
+    const helpers = {
+      time_format:
+        "Replaces the time column. Placeholders: {min} minutes until departure, {leave} minutes until you have to leave, {time} actual time, {planned} planned time, {delay} delay in minutes, {delay_text} e.g. ' (+3)'",
+      time_format_now: "Used instead of the time format when {min} is 0",
+    };
+
+    return helpers[field.name];
   }
 
   setConfig(config) {
@@ -382,8 +504,11 @@ class BerlinTransportCardEditor extends HTMLElement {
       { name: "show_relative_time", selector: { boolean: {} } },
       { name: "include_walking_time", selector: { boolean: {} } },
       { name: "show_warnings", selector: { boolean: {} } },
+      { name: "time_format", selector: { text: {} } },
+      { name: "time_format_now", selector: { text: {} } },
     ];
     form.computeLabel = this._computeLabel;
+    form.computeHelper = this._computeHelper;
     form.addEventListener("value-changed", this._valueChanged);
     this.shadowRoot.appendChild(form);
   }
