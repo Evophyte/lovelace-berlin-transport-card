@@ -1,5 +1,76 @@
 // Berlin Transport Card
 
+function escapeHtml(text) {
+  const entities = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return String(text).replace(/[&<>"']/g, (char) => entities[char]);
+}
+
+// Formats a time as HH:MM in the given IANA time zone (local time if empty)
+function formatClock(ms, timeZone) {
+  const format = (zone) =>
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: zone,
+    }).format(ms);
+
+  try {
+    return format(timeZone || undefined);
+  } catch (e) {
+    // unknown time zone
+    return format(undefined);
+  }
+}
+
+/*
+ * Renders the time column of a departure from a `time_format` template.
+ * Pure function: `now` is a Date or a timestamp in ms, `walkingTime` is in
+ * minutes, `options.formatNow` replaces `format` when {min} is 0 and
+ * `options.timeZone` is the IANA time zone used for {time}.
+ * The result is HTML-safe.
+ */
+function formatDepartureTime(
+  departure,
+  walkingTime,
+  now,
+  format,
+  options = {},
+) {
+  const delaySeconds = departure.delay || 0;
+  const plannedMs = new Date(departure.timestamp).getTime();
+  const actualMs = plannedMs + delaySeconds * 1000;
+  const valid = Number.isFinite(actualMs);
+
+  const min = valid ? Math.max(0, Math.floor((actualMs - now) / 60000)) : "?";
+  const leave = valid ? Math.max(0, min - (walkingTime || 0)) : "?";
+  const delay = Math.trunc(delaySeconds / 60);
+  const planned =
+    departure.time || (valid ? formatClock(plannedMs, options.timeZone) : "?");
+
+  const values = {
+    min,
+    leave,
+    time: valid ? formatClock(actualMs, options.timeZone) : "?",
+    planned: escapeHtml(planned),
+    delay,
+    delay_text: delay >= 1 ? ` (+${delay})` : "",
+  };
+
+  const template = min === 0 && options.formatNow ? options.formatNow : format;
+
+  // Escape first, so only the placeholder values can add markup
+  return escapeHtml(template).replace(/\{(\w+)\}/g, (match, key) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match,
+  );
+}
+
 class BerlinTransportCard extends HTMLElement {
   constructor() {
     super();
