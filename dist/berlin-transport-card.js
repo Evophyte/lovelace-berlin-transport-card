@@ -455,9 +455,21 @@ class BerlinTransportCardEditor extends HTMLElement {
       include_walking_time:
         "Subtract walking time from relative time of departures",
       show_warnings: "Show warnings (e.g. service disruptions)",
+      time_format: "Time format (optional)",
+      time_format_now: "Time format when departing now (optional)",
     };
 
     return labels[field.name] ? labels[field.name] : field.name;
+  }
+
+  _computeHelper(field) {
+    const helpers = {
+      time_format:
+        "Replaces the time column. Placeholders: {min} minutes until departure, {leave} minutes until you have to leave, {time} actual time, {planned} planned time, {delay} delay in minutes, {delay_text} e.g. ' (+3)'",
+      time_format_now: "Used instead of the time format when {min} is 0",
+    };
+
+    return helpers[field.name];
   }
 
   setConfig(config) {
@@ -492,8 +504,11 @@ class BerlinTransportCardEditor extends HTMLElement {
       { name: "show_relative_time", selector: { boolean: {} } },
       { name: "include_walking_time", selector: { boolean: {} } },
       { name: "show_warnings", selector: { boolean: {} } },
+      { name: "time_format", selector: { text: {} } },
+      { name: "time_format_now", selector: { text: {} } },
     ];
     form.computeLabel = this._computeLabel;
+    form.computeHelper = this._computeHelper;
     form.addEventListener("value-changed", this._valueChanged);
     this.shadowRoot.appendChild(form);
   }
