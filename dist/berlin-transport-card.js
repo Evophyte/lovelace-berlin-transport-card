@@ -263,7 +263,7 @@ class BerlinTransportCard extends HTMLElement {
                   departure.walking_time || 0,
                   currentDate,
                   timeFormat,
-                  { formatNow: timeFormatNow, timeZone },
+                  { formatNow: timeFormatNow, timeZone, showDelay },
                 )}</div>`
               : `${showRelativeTime ? relativeTimeDiv : ""}${showAbsoluteTime ? departure.time : ""}${showDelay ? delayDiv : ""}`;
 
@@ -384,6 +384,11 @@ class BerlinTransportCard extends HTMLElement {
             }
             .time-text {
                text-align: right;
+            }
+            .time-text .delay {
+               vertical-align: super;
+               line-height: 1;
+               white-space: nowrap;
             }
             .warnings {
                 display: flex;
