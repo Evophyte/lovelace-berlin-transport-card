@@ -52,6 +52,45 @@ This Lovelace card can be installed via [HACS](https://hacs.xyz/) or manually.
   show_relative_time: true # show the relative time till departure.
   include_walking_time: true # subtract walking time to the stop from the relative time to the departure.
   show_warnings: true # show or hide the service warnings if reported. When not defined or true, the warnings will be shown under the direction.
+  time_format: "In {min} Min. – {time}{delay_text}" # optional, replaces the time column with your own format, see "Time format" below.
+  time_format_now: "Jetzt – {time}" # optional, used instead of time_format when {min} is 0.
+```
+
+## 🕒 Time format
+
+By default the right side of each departure shows the relative time, the absolute time and the delay (e.g. `10′ 21:22 +0`). With the optional `time_format` option you can define this text yourself. When it is set, it replaces the whole time column, so `show_relative_time`, `show_absolute_time`, `show_delay` and `include_walking_time` have no effect. Without it, nothing changes.
+
+| Option            | Description                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| `time_format`     | Text with placeholders, e.g. `"In {min} Min. – {time}{delay_text}"`.                     |
+| `time_format_now` | Optional. Used instead of `time_format` when `{min}` is `0`, e.g. `"Jetzt – {time}"`.    |
+
+| Placeholder    | Description                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| `{min}`        | Minutes until the actual departure (including delay), rounded down, never negative.            |
+| `{leave}`      | Minutes until you have to leave: `{min}` minus the walking time of the stop, never negative.   |
+| `{time}`       | Actual departure time as `HH:MM` (including delay), in the time zone of Home Assistant.        |
+| `{planned}`    | Planned departure time as `HH:MM`.                                                             |
+| `{delay}`      | Delay in whole minutes (`0` if there is none).                                                 |
+| `{delay_text}` | `" (+N)"` if the delay is at least one minute, otherwise an empty string.                      |
+
+Unknown placeholders are left as they are and HTML in the format is escaped. Cancelled departures are still struck through. The card refreshes every minute.
+
+Examples:
+
+```yaml
+# "In 15 Min. – 21:22" or, with a delay, "In 18 Min. – 21:25 (+3)"
+- type: custom:berlin-transport-card
+  entities:
+    - sensor.buechnerweg
+  time_format: "In {min} Min. – {time}{delay_text}"
+  time_format_now: "Jetzt – {time}"
+
+# "21:25 (+3) · Losgehen in 13 Min." (uses the walking time of the stop)
+- type: custom:berlin-transport-card
+  entities:
+    - sensor.s_bahnhof
+  time_format: "{time}{delay_text} · Losgehen in {leave} Min."
 ```
 
 
