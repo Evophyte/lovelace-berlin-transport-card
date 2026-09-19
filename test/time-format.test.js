@@ -282,7 +282,79 @@ test("invalid timestamp does not throw", () => {
   );
 });
 
-test("example card 2: {time}{delay_text} · Losgehen in {leave} Min.", () => {
+const BADGE = "{delay_badge}";
+const POS = (n) => `<span class="delay delay-pos">+${n}</span>`;
+const NEG = (n) => `<span class="delay delay-neg">${n}</span>`;
+
+test("{delay_badge}: on time is +0 in green (delay-neg)", () => {
+  assert.equal(formatDepartureTime(departure(), 0, NOW, BADGE), NEG("+0"));
+});
+
+test("{delay_badge}: 3 minutes late is +3 in red (delay-pos)", () => {
+  assert.equal(
+    formatDepartureTime(departure({ delay: 180 }), 0, NOW, BADGE),
+    POS(3),
+  );
+});
+
+test("{delay_badge}: too early shows the negative number in green", () => {
+  assert.equal(
+    formatDepartureTime(departure({ delay: -120 }), 0, NOW, BADGE),
+    NEG(-2),
+  );
+});
+
+test("{delay_badge}: same number as delayDiv (delay / 60, not truncated)", () => {
+  assert.equal(
+    formatDepartureTime(departure({ delay: 90 }), 0, NOW, BADGE),
+    POS(1.5),
+  );
+});
+
+test("{delay_badge}: empty for delay null or invalid", () => {
+  for (const delay of [null, undefined, NaN, "180", "<img onerror=x>"]) {
+    assert.equal(
+      formatDepartureTime(departure({ delay }), 0, NOW, `[${BADGE}]`),
+      "[]",
+      `delay ${String(delay)}`,
+    );
+  }
+});
+
+test("{delay_badge}: empty with showDelay false, shown otherwise", () => {
+  const d = departure({ delay: 180 });
+  assert.equal(
+    formatDepartureTime(d, 0, NOW, BADGE, { showDelay: false }),
+    "",
+  );
+  assert.equal(formatDepartureTime(d, 0, NOW, BADGE, { showDelay: true }), POS(3));
+  assert.equal(formatDepartureTime(d, 0, NOW, BADGE, {}), POS(3));
+});
+
+test("{delay_badge}: showDelay false does not affect the other placeholders", () => {
+  assert.equal(
+    formatDepartureTime(departure({ delay: 180 }), 0, NOW, FORMAT, {
+      timeZone: TZ,
+      showDelay: false,
+    }),
+    "In 18 Min. – 21:25 (+3)",
+  );
+});
+
+test("{delay_badge}: sits inline in the format, text around it is escaped", () => {
+  assert.equal(
+    formatDepartureTime(
+      departure({ delay: 180 }),
+      0,
+      NOW,
+      "In {min} Min. – {time}{delay_badge} <b>",
+      { timeZone: TZ },
+    ),
+    `In 18 Min. – 21:25${POS(3)} &lt;b&gt;`,
+  );
+});
+
+test("example card 2:{time}{delay_text} · Losgehen in {leave} Min.", () => {
   assert.equal(
     formatDepartureTime(
       departure({ delay: 180 }),

@@ -32,8 +32,9 @@ function formatClock(ms, timeZone) {
 /*
  * Renders the time column of a departure from a `time_format` template.
  * Pure function: `now` is a Date or a timestamp in ms, `walkingTime` is in
- * minutes, `options.formatNow` replaces `format` when {min} is 0 and
- * `options.timeZone` is the IANA time zone used for {time}.
+ * minutes, `options.formatNow` replaces `format` when {min} is 0,
+ * `options.timeZone` is the IANA time zone used for {time} and
+ * `options.showDelay` (default true) enables {delay_badge}.
  * The result is HTML-safe.
  */
 function formatDepartureTime(
@@ -54,6 +55,17 @@ function formatDepartureTime(
   const planned =
     departure.time || (valid ? formatClock(plannedMs, options.timeZone) : "?");
 
+  // Same markup and logic as delayDiv in the card, but inline. Only the
+  // computed number goes into the element, never text from the API.
+  let delayBadge = "";
+  if (options.showDelay !== false && Number.isFinite(departure.delay)) {
+    const badgeDelay = departure.delay / 60;
+    delayBadge =
+      badgeDelay > 0
+        ? `<span class="delay delay-pos">+${badgeDelay}</span>`
+        : `<span class="delay delay-neg">${badgeDelay === 0 ? "+0" : badgeDelay}</span>`;
+  }
+
   const values = {
     min,
     leave,
@@ -61,6 +73,7 @@ function formatDepartureTime(
     planned: escapeHtml(planned),
     delay,
     delay_text: delay >= 1 ? ` (+${delay})` : "",
+    delay_badge: delayBadge,
   };
 
   const template = min === 0 && options.formatNow ? options.formatNow : format;
