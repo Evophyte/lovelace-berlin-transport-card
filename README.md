@@ -58,7 +58,7 @@ This Lovelace card can be installed via [HACS](https://hacs.xyz/) or manually.
 
 ## 🕒 Time format
 
-By default the right side of each departure shows the relative time, the absolute time and the delay (e.g. `10′ 21:22 +0`). With the optional `time_format` option you can define this text yourself. When it is set, it replaces the whole time column, so `show_relative_time`, `show_absolute_time`, `show_delay` and `include_walking_time` have no effect. Without it, nothing changes.
+By default the right side of each departure shows the relative time, the absolute time and the delay (e.g. `10′ 21:22 +0`). With the optional `time_format` option you can define this text yourself. When it is set, it replaces the whole time column, so `show_relative_time`, `show_absolute_time` and `include_walking_time` have no effect. `show_delay: false` only hides `{delay_badge}`. Without it, nothing changes.
 
 | Option            | Description                                                                              |
 | ----------------- | ---------------------------------------------------------------------------------------- |
@@ -73,6 +73,7 @@ By default the right side of each departure shows the relative time, the absolut
 | `{planned}`    | Planned departure time as `HH:MM`.                                                             |
 | `{delay}`      | Delay in whole minutes (`0` if there is none).                                                 |
 | `{delay_text}` | `" (+N)"` if the delay is at least one minute, otherwise an empty string.                      |
+| `{delay_badge}` | The small, colored delay next to the time, like without `time_format`: red `+N` if late, green `+0` if on time, green `-N` if early. Empty if the delay is unknown or `show_delay` is `false`. |
 
 Unknown placeholders are left as they are and HTML in the format is escaped. Cancelled departures are still struck through. The card refreshes every minute.
 
@@ -85,6 +86,12 @@ Examples:
     - sensor.buechnerweg
   time_format: "In {min} Min. – {time}{delay_text}"
   time_format_now: "Jetzt – {time}"
+
+# "In 15 Min. – 21:22" with a small green +0, or "In 18 Min. – 21:25" with a small red +3
+- type: custom:berlin-transport-card
+  entities:
+    - sensor.buechnerweg
+  time_format: "In {min} Min. – {time}{delay_badge}"
 
 # "21:25 (+3) · Losgehen in 13 Min." (uses the walking time of the stop)
 - type: custom:berlin-transport-card
