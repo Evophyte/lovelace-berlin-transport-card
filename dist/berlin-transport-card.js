@@ -483,7 +483,7 @@ class BerlinTransportCardEditor extends HTMLElement {
   _computeHelper(field) {
     const helpers = {
       time_format:
-        "Replaces the time column. Placeholders: {min} minutes until departure, {leave} minutes until you have to leave, {time} actual time, {planned} planned time, {delay} delay in minutes, {delay_text} e.g. ' (+3)'",
+        "Replaces the time column. Placeholders: {min} minutes until departure, {leave} minutes until you have to leave, {time} actual time, {planned} planned time, {delay} delay in minutes, {delay_text} e.g. ' (+3)', {delay_badge} small colored delay",
       time_format_now: "Used instead of the time format when {min} is 0",
     };
 
