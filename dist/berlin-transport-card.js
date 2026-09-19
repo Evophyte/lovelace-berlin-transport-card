@@ -79,6 +79,26 @@ class BerlinTransportCard extends HTMLElement {
     });
   }
 
+  connectedCallback() {
+    this._scheduleRefresh();
+  }
+
+  disconnectedCallback() {
+    clearTimeout(this._refreshTimer);
+    this._refreshTimer = undefined;
+  }
+
+  /* Home Assistant only calls `set hass` on state changes, but the
+     remaining minutes change without one. Re-render every full minute. */
+  _scheduleRefresh() {
+    clearTimeout(this._refreshTimer);
+    const untilNextMinute = 60000 - (Date.now() % 60000);
+    this._refreshTimer = setTimeout(() => {
+      this._scheduleRefresh();
+      if (this.config && this._hass) this.hass = this._hass;
+    }, untilNextMinute + 500);
+  }
+
   /* This is called every time sensor is updated */
   set hass(hass) {
     this._hass = hass;
