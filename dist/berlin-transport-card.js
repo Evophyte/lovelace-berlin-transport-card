@@ -99,6 +99,11 @@ class BerlinTransportCard extends HTMLElement {
       config.include_walking_time || config.include_walking_time === undefined;
     const showWarnings =
       config.show_warnings || config.show_warnings === undefined;
+    const timeFormat =
+      typeof config.time_format === "string" ? config.time_format : "";
+    const timeFormatNow =
+      typeof config.time_format_now === "string" ? config.time_format_now : "";
+    const timeZone = hass.config?.time_zone;
 
     let content = "";
 
@@ -218,6 +223,17 @@ class BerlinTransportCard extends HTMLElement {
               ? "departure-cancelled"
               : "";
 
+            // time_format replaces the whole time column
+            const timeContent = timeFormat
+              ? `<div class="time-text">${formatDepartureTime(
+                  departure,
+                  departure.walking_time || 0,
+                  currentDate,
+                  timeFormat,
+                  { formatNow: timeFormatNow, timeZone },
+                )}</div>`
+              : `${showRelativeTime ? relativeTimeDiv : ""}${showAbsoluteTime ? departure.time : ""}${showDelay ? delayDiv : ""}`;
+
             return `<div class="departure">
                                 <div class="line ${cancelledClass}">
                                     <div class="line-icon" style="background-color: ${departure.color}">${departure.line_name}</div>
@@ -226,7 +242,7 @@ class BerlinTransportCard extends HTMLElement {
                                     <div class="${cancelledClass}">${departure.direction}</div>
                                     ${warningsDiv}
                                 </div>
-                                <div class="time ${cancelledClass}">${showRelativeTime ? relativeTimeDiv : ""}${showAbsoluteTime ? departure.time : ""}${showDelay ? delayDiv : ""}</div>
+                                <div class="time ${cancelledClass}">${timeContent}</div>
                             </div>`;
           });
 
@@ -332,6 +348,9 @@ class BerlinTransportCard extends HTMLElement {
             }
             .relative-time {
                font-style: italic;
+            }
+            .time-text {
+               text-align: right;
             }
             .warnings {
                 display: flex;
